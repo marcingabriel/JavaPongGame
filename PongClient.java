@@ -70,9 +70,12 @@ public class PongClient {
                     String response = new String(packet.getData(), 0, packet.getLength());
                     System.out.println("Recebido via UDP: " + response); // Log para verificar a recepção
     
-                    if (response.startsWith("UPDATE")) {
+                    if (response.startsWith("CONNECTED")) {
+                        playerId = Integer.parseInt(response.split(" ")[1]);
+                    } else if (response.startsWith("UPDATE")) {
                         processUpdate(response);
                     }
+                    
                 } catch (IOException e) {
                     e.printStackTrace();
                     break;
@@ -112,11 +115,13 @@ public class PongClient {
         });
         panel.setFocusable(true);
         panel.requestFocusInWindow();
+        
     }
     
 
     private void sendMessage(String message) throws IOException {
         if (isUDP) {
+            System.out.println("Movimento enviado via UDP: " + message);
             sendUDPMessage(message);
         } else {
             out.println(message);

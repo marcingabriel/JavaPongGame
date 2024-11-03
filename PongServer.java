@@ -76,10 +76,11 @@ public class PongServer {
                     );
                     udpSocket.send(responsePacket);
                 } else if (message.startsWith("MOVE")) {
+                    System.out.println("Movimento recebido via UDP: " + message);
                     String[] parts = message.split(" ");
                     int player = Integer.parseInt(parts[1]);
                     int newY = Integer.parseInt(parts[2]);
-    
+                
                     if (player == 1) {
                         paddle1Y = newY;
                     } else if (player == 2) {
@@ -148,6 +149,7 @@ public class PongServer {
             }
             
             // Enviar atualização para clientes UDP
+            System.out.println("Enviando atualização para clientes: " + update);
             sendUDPUpdate(update);
         }
     }
