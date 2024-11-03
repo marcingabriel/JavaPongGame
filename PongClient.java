@@ -193,8 +193,6 @@ public class PongClient {
         }
     }
     
-    
-    
 
     private class PongPanel extends JPanel {
         protected void paintComponent(Graphics g) {
@@ -206,7 +204,9 @@ public class PongClient {
             
             // Desenhar a bola
             g.fillRect(ballX, ballY, 10, 10);
-            
+
+
+           
             // Desenhar linha tracejada no centro da tela
             g.setColor(Color.BLACK); // Cor preta para os retângulos
             for (int i = 1; i < 500; i += 20) { // Alterne a cada 20 pixels       
@@ -214,17 +214,22 @@ public class PongClient {
             }
     
             // Desenhar retângulos marcando as bordas superior e inferior
-            g.setColor(Color.BLACK); // Cor preta para os retângulos
+            g.setColor(Color.BLUE); // Cor preta para os retângulos
             g.fillRect(0, 452, 500, 10); // Retângulo na parte inferior
             g.fillRect(0, 1,500, 10); // Retângulo na parte superior
 
 
-                // Exibir pontuação dos jogadores
-                g.setFont(new Font("Arial", Font.BOLD, 18));
-                g.drawString("Player 1: " + scorePlayer1, 20, 30);
-                g.drawString("Player 2: " + scorePlayer2, 380, 30);
+                g.setColor(Color.RED);
+               // Exibir pontuação dos jogadores (apenas os números) com fonte maior
+                g.setFont(new Font("Arial", Font.BOLD, 48)); // Tamanho de fonte ajustado para 48
+                g.drawString(String.valueOf(scorePlayer1), 150, 50); // Posição para o jogador 1
+                g.drawString(String.valueOf(scorePlayer2), 320, 50); // Posição para o jogador 2
+
+
         }
     }
+
+
     
     
 }
