@@ -44,19 +44,43 @@ public class PongClient {
         frame.setVisible(true);
         
         serverAddress = InetAddress.getByName(serverIP);
-
+    
         if (isUDP) {
             udpSocket = new DatagramSocket();
             sendUDPMessage("CONNECT");
+            startUDPReceiver();  // Inicializa a thread para recepção UDP
         } else {
             Socket socket = new Socket(serverIP, 59090);
             out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             startTCPReceiver(in);
         }
-
+    
         setupControls();
     }
+    
+    private void startUDPReceiver() {
+        new Thread(() -> {
+            byte[] buffer = new byte[256];
+            while (true) {
+                try {
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    udpSocket.receive(packet);
+                    
+                    String response = new String(packet.getData(), 0, packet.getLength());
+                    //System.out.println("Recebido via UDP: " + response); // Log para verificar a recepção
+    
+                    if (response.startsWith("UPDATE")) {
+                        processUpdate(response);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        }).start();
+    }
+    
 
     private void setupControls() {
         panel.addKeyListener(new KeyAdapter() {
@@ -100,7 +124,7 @@ public class PongClient {
 
     private void sendUDPMessage(String message) throws IOException {
         byte[] buffer = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverAddress, 59090);
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverAddress, 59091);
         udpSocket.send(packet);
     }
 

@@ -4,7 +4,7 @@ import java.util.concurrent.*;
 
 public class PongServer {
     private static final int TCP_PORT = 59090;
-    private static final int UDP_PORT = 59090;
+    private static final int UDP_PORT = 59091;
     private static final int GAME_HEIGHT = 500;
     private static final int GAME_WIDTH = 500;
     private static int connectedPlayers = 0;
@@ -18,14 +18,21 @@ public class PongServer {
     private static int scorePlayer1 = 0;
     private static int scorePlayer2 = 0;
 
+    private static DatagramSocket udpSocket;
+
 
     public static void main(String[] args) throws IOException {
         System.out.println("Pong Server is running...");
         ExecutorService pool = Executors.newFixedThreadPool(2);
+    
+        // Inicializa o udpSocket antes de iniciar a thread
+        udpSocket = new DatagramSocket(UDP_PORT);
+    
         new Thread(() -> handleTCPConnections(pool)).start();
         new Thread(() -> handleUDPConnections()).start();
         new Thread(() -> gameLoop()).start();
     }
+    
 
     private static void handleTCPConnections(ExecutorService pool) {
         try (ServerSocket listener = new ServerSocket(TCP_PORT)) {
@@ -42,26 +49,32 @@ public class PongServer {
     }
 
     private static void handleUDPConnections() {
-        try (DatagramSocket udpSocket = new DatagramSocket(UDP_PORT)) {
-            byte[] buffer = new byte[256];
+        byte[] buffer = new byte[256];
+        try {
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 udpSocket.receive(packet);
                 String message = new String(packet.getData(), 0, packet.getLength());
-
+    
                 if (message.startsWith("CONNECT")) {
                     synchronized (PongServer.class) {
                         connectedPlayers++;
+                        // Armazenar endereço e porta do cliente para envio de atualizações
+                        PlayerHandler.udpClients.add(new InetSocketAddress(packet.getAddress(), packet.getPort()));
                     }
                     String connectResponse = "CONNECTED " + connectedPlayers;
-                    DatagramPacket responsePacket = new DatagramPacket(connectResponse.getBytes(),
-                            connectResponse.length(), packet.getAddress(), packet.getPort());
+                    DatagramPacket responsePacket = new DatagramPacket(
+                        connectResponse.getBytes(),
+                        connectResponse.length(),
+                        packet.getAddress(),
+                        packet.getPort()
+                    );
                     udpSocket.send(responsePacket);
                 } else if (message.startsWith("MOVE")) {
                     String[] parts = message.split(" ");
                     int player = Integer.parseInt(parts[1]);
                     int newY = Integer.parseInt(parts[2]);
-
+    
                     if (player == 1) {
                         paddle1Y = newY;
                     } else if (player == 2) {
@@ -73,7 +86,8 @@ public class PongServer {
             e.printStackTrace();
         }
     }
-
+    
+    
     private static void gameLoop() {
         while (true) {
             try {
@@ -122,13 +136,15 @@ public class PongServer {
             for (PlayerHandler player : PlayerHandler.players) {
                 player.sendUpdate(update);
             }
+            //System.out.println("Enviando atualização para clientes UDP: " + update); // Log de debug
             sendUDPUpdate(update);
         }
     }
     
+    
 
     private static void sendUDPUpdate(String update) {
-        try (DatagramSocket udpSocket = new DatagramSocket()) {
+        try {
             byte[] buffer = update.getBytes();
             for (InetSocketAddress client : PlayerHandler.udpClients) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length, client.getAddress(), client.getPort());
@@ -138,6 +154,7 @@ public class PongServer {
             e.printStackTrace();
         }
     }
+    
 
     private static class PlayerHandler implements Runnable {
         private Socket socket;
