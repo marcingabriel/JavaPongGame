@@ -94,7 +94,7 @@ public class PongServer {
             ballYSpeed = -ballYSpeed; // Inverte a direção
         }
 
-        if (ballX <= 20 && ballY >= paddle1Y && ballY <= paddle1Y + 60) {
+        if (ballX <= 16 && ballY >= paddle1Y && ballY <= paddle1Y + 60) {
             ballXSpeed = -ballXSpeed;
         }
         if (ballX >= GAME_WIDTH - 40 && ballY >= paddle2Y && ballY <= paddle2Y + 60) {

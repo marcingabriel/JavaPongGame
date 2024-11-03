@@ -140,7 +140,7 @@ public class PongClient {
             super.paintComponent(g);
             
             // Desenhar as paletas
-            g.fillRect(10, paddle1Y, 10, 60);
+            g.fillRect(4, paddle1Y, 10, 60);
             g.fillRect(470, paddle2Y, 10, 60);
             
             // Desenhar a bola
