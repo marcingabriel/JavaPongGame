@@ -16,6 +16,9 @@ public class PongClient {
     private DatagramSocket udpSocket;
     private InetAddress serverAddress;
     private boolean isUDP;
+    private int scorePlayer1 = 0;
+    private int scorePlayer2 = 0;
+
 
     public static void main(String[] args) {
         String serverIP = JOptionPane.showInputDialog("Enter Server IP:");
@@ -125,9 +128,12 @@ public class PongClient {
             ballY = Integer.parseInt(data[2]);
             paddle1Y = Integer.parseInt(data[3]);
             paddle2Y = Integer.parseInt(data[4]);
+            scorePlayer1 = Integer.parseInt(data[5]);
+            scorePlayer2 = Integer.parseInt(data[6]);
             panel.repaint();
         }
     }
+    
 
     private class PongPanel extends JPanel {
         protected void paintComponent(Graphics g) {
@@ -150,6 +156,12 @@ public class PongClient {
             g.setColor(Color.BLACK); // Cor preta para os retângulos
             g.fillRect(0, 452, 500, 10); // Retângulo na parte inferior
             g.fillRect(0, 1,500, 10); // Retângulo na parte superior
+
+
+                // Exibir pontuação dos jogadores
+                g.setFont(new Font("Arial", Font.BOLD, 18));
+                g.drawString("Player 1: " + scorePlayer1, 20, 30);
+                g.drawString("Player 2: " + scorePlayer2, 380, 30);
         }
     }
     

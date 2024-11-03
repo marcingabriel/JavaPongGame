@@ -14,6 +14,10 @@ public class PongServer {
     private static int ballY = GAME_HEIGHT / 2; // Posição Y da bola
     private static int ballXSpeed = 2; // Velocidade da bola em X
     private static int ballYSpeed = 1; // Velocidade da bola em Y
+    // Pontuação
+    private static int scorePlayer1 = 0;
+    private static int scorePlayer2 = 0;
+
 
     public static void main(String[] args) throws IOException {
         System.out.println("Pong Server is running...");
@@ -97,14 +101,23 @@ public class PongServer {
             ballXSpeed = -ballXSpeed;
         }
 
-        if (ballX < 0 || ballX > GAME_WIDTH) {
-            ballX = GAME_WIDTH / 2;
-            ballY = GAME_HEIGHT / 2;
+        if (ballX < 0) { // Bola passou pela parede esquerda
+            scorePlayer2++;
+            resetBall();
+        } else if (ballX > GAME_WIDTH) { // Bola passou pela parede direita
+            scorePlayer1++;
+            resetBall();
         }
     }
 
+    private static void resetBall() {
+        ballX = GAME_WIDTH / 2;
+        ballY = GAME_HEIGHT / 2;
+        ballXSpeed = -ballXSpeed; // Inverte a direção para reiniciar a jogada
+    }
+    
     private static void sendGameUpdate() {
-        String update = String.format("UPDATE %d %d %d %d", ballX, ballY, paddle1Y, paddle2Y);
+        String update = String.format("UPDATE %d %d %d %d %d %d", ballX, ballY, paddle1Y, paddle2Y, scorePlayer1, scorePlayer2);
         synchronized (PongServer.class) {
             for (PlayerHandler player : PlayerHandler.players) {
                 player.sendUpdate(update);
@@ -112,6 +125,7 @@ public class PongServer {
             sendUDPUpdate(update);
         }
     }
+    
 
     private static void sendUDPUpdate(String update) {
         try (DatagramSocket udpSocket = new DatagramSocket()) {
