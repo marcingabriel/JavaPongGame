@@ -4,6 +4,7 @@ import java.util.concurrent.*;
 
 public class PongServer {
     private static final int TCP_PORT = 59090;
+    private static final int UDP_PORT = 59090;
     private static final int GAME_HEIGHT = 500;
     private static final int GAME_WIDTH = 500;
     private static int connectedPlayers = 0;
@@ -18,6 +19,7 @@ public class PongServer {
         System.out.println("Pong Server is running...");
         ExecutorService pool = Executors.newFixedThreadPool(2);
         new Thread(() -> handleTCPConnections(pool)).start();
+        new Thread(() -> handleUDPConnections()).start();
         new Thread(() -> gameLoop()).start();
     }
 
@@ -29,6 +31,39 @@ public class PongServer {
                     connectedPlayers++;
                 }
                 pool.execute(new PlayerHandler(socket, connectedPlayers));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void handleUDPConnections() {
+        try (DatagramSocket udpSocket = new DatagramSocket(UDP_PORT)) {
+            byte[] buffer = new byte[256];
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                udpSocket.receive(packet);
+                String message = new String(packet.getData(), 0, packet.getLength());
+
+                if (message.startsWith("CONNECT")) {
+                    synchronized (PongServer.class) {
+                        connectedPlayers++;
+                    }
+                    String connectResponse = "CONNECTED " + connectedPlayers;
+                    DatagramPacket responsePacket = new DatagramPacket(connectResponse.getBytes(),
+                            connectResponse.length(), packet.getAddress(), packet.getPort());
+                    udpSocket.send(responsePacket);
+                } else if (message.startsWith("MOVE")) {
+                    String[] parts = message.split(" ");
+                    int player = Integer.parseInt(parts[1]);
+                    int newY = Integer.parseInt(parts[2]);
+
+                    if (player == 1) {
+                        paddle1Y = newY;
+                    } else if (player == 2) {
+                        paddle2Y = newY;
+                    }
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -51,20 +86,17 @@ public class PongServer {
         ballX += ballXSpeed;
         ballY += ballYSpeed;
 
-        // Colisão com as paredes
         if (ballY <= 0 || ballY >= GAME_HEIGHT - 10) {
             ballYSpeed = -ballYSpeed; // Inverte a direção
         }
 
-        // Colisão com as paletas
         if (ballX <= 20 && ballY >= paddle1Y && ballY <= paddle1Y + 60) {
-            ballXSpeed = -ballXSpeed; // Bate na paleta do jogador 1
+            ballXSpeed = -ballXSpeed;
         }
         if (ballX >= GAME_WIDTH - 40 && ballY >= paddle2Y && ballY <= paddle2Y + 60) {
-            ballXSpeed = -ballXSpeed; // Bate na paleta do jogador 2
+            ballXSpeed = -ballXSpeed;
         }
 
-        // Reset ball if it goes out of bounds
         if (ballX < 0 || ballX > GAME_WIDTH) {
             ballX = GAME_WIDTH / 2;
             ballY = GAME_HEIGHT / 2;
@@ -72,12 +104,24 @@ public class PongServer {
     }
 
     private static void sendGameUpdate() {
+        String update = String.format("UPDATE %d %d %d %d", ballX, ballY, paddle1Y, paddle2Y);
         synchronized (PongServer.class) {
-            String update = String.format("UPDATE %d %d %d %d", ballX, ballY, paddle1Y, paddle2Y);
-            // Aqui você enviaria a atualização para ambos os jogadores
             for (PlayerHandler player : PlayerHandler.players) {
                 player.sendUpdate(update);
             }
+            sendUDPUpdate(update);
+        }
+    }
+
+    private static void sendUDPUpdate(String update) {
+        try (DatagramSocket udpSocket = new DatagramSocket()) {
+            byte[] buffer = update.getBytes();
+            for (InetSocketAddress client : PlayerHandler.udpClients) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, client.getAddress(), client.getPort());
+                udpSocket.send(packet);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -86,6 +130,7 @@ public class PongServer {
         private BufferedReader in;
         private PrintWriter out;
         static final java.util.List<PlayerHandler> players = new java.util.ArrayList<>();
+        static final java.util.List<InetSocketAddress> udpClients = new java.util.ArrayList<>();
         private int playerId;
 
         public PlayerHandler(Socket socket, int playerId) {
@@ -99,10 +144,9 @@ public class PongServer {
             try {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
-                
-                // Confirma conexão ao jogador
+
                 out.println("CONNECTED " + playerId);
-                
+
                 String command;
                 while ((command = in.readLine()) != null) {
                     if (command.startsWith("MOVE")) {
@@ -111,9 +155,9 @@ public class PongServer {
                         int newY = Integer.parseInt(parts[2]);
 
                         if (player == 1) {
-                            paddle1Y = newY; // Atualiza a paleta do jogador 1
+                            paddle1Y = newY;
                         } else if (player == 2) {
-                            paddle2Y = newY; // Atualiza a paleta do jogador 2
+                            paddle2Y = newY;
                         }
                     }
                 }

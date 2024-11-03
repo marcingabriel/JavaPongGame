@@ -13,89 +13,127 @@ public class PongClient {
     private int ballX = 150, ballY = 100;
     private int playerId; // ID do jogador
     private PrintWriter out;
+    private DatagramSocket udpSocket;
+    private InetAddress serverAddress;
+    private boolean isUDP;
 
     public static void main(String[] args) {
-        String serverAddress = JOptionPane.showInputDialog("Enter Server IP:");
+        String serverIP = JOptionPane.showInputDialog("Enter Server IP:");
+        String[] options = {"TCP", "UDP"};
+        int protocolChoice = JOptionPane.showOptionDialog(null, "Choose Protocol", "Protocol Selection",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        boolean isUDP = protocolChoice == 1;
+        
         try {
-            new PongClient(serverAddress);
+            new PongClient(serverIP, isUDP);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public PongClient(String serverAddress) throws IOException {
+    public PongClient(String serverIP, boolean isUDP) throws IOException {
+        this.isUDP = isUDP;
         frame = new JFrame("Pong Client");
         panel = new PongPanel();
         frame.add(panel);
         frame.setSize(WIDTH, HEIGHT);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
+        
+        serverAddress = InetAddress.getByName(serverIP);
 
-        Socket socket = new Socket(serverAddress, 59090);
-        out = new PrintWriter(socket.getOutputStream(), true);
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        if (isUDP) {
+            udpSocket = new DatagramSocket();
+            sendUDPMessage("CONNECT");
+        } else {
+            Socket socket = new Socket(serverIP, 59090);
+            out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            startTCPReceiver(in);
+        }
 
-        // Thread para receber atualizações do servidor
+        setupControls();
+    }
+
+    private void setupControls() {
+        panel.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                try {
+                    if (playerId == 1) {
+                        if (e.getKeyCode() == KeyEvent.VK_W && paddle1Y > 0) {
+                            paddle1Y -= 5;
+                            sendMessage("MOVE 1 " + paddle1Y);
+                        }
+                        if (e.getKeyCode() == KeyEvent.VK_S && paddle1Y < HEIGHT - 60) {
+                            paddle1Y += 5;
+                            sendMessage("MOVE 1 " + paddle1Y);
+                        }
+                    } else if (playerId == 2) {
+                        if (e.getKeyCode() == KeyEvent.VK_UP && paddle2Y > 0) {
+                            paddle2Y -= 5;
+                            sendMessage("MOVE 2 " + paddle2Y);
+                        }
+                        if (e.getKeyCode() == KeyEvent.VK_DOWN && paddle2Y < HEIGHT - 60) {
+                            paddle2Y += 5;
+                            sendMessage("MOVE 2 " + paddle2Y);
+                        }
+                    }
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+        panel.setFocusable(true);
+        panel.requestFocusInWindow();
+    }
+
+    private void sendMessage(String message) throws IOException {
+        if (isUDP) {
+            sendUDPMessage(message);
+        } else {
+            out.println(message);
+        }
+    }
+
+    private void sendUDPMessage(String message) throws IOException {
+        byte[] buffer = message.getBytes();
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverAddress, 59090);
+        udpSocket.send(packet);
+    }
+
+    private void startTCPReceiver(BufferedReader in) {
         new Thread(() -> {
             try {
                 String response = in.readLine();
                 if (response.startsWith("CONNECTED")) {
                     playerId = Integer.parseInt(response.split(" ")[1]);
                 }
-
                 while (true) {
                     response = in.readLine();
-                    if (response.startsWith("UPDATE")) {
-                        String[] data = response.split(" ");
-                        ballX = Integer.parseInt(data[1]);
-                        ballY = Integer.parseInt(data[2]);
-                        paddle1Y = Integer.parseInt(data[3]);
-                        paddle2Y = Integer.parseInt(data[4]);
-                        panel.repaint();
-                    }
+                    processUpdate(response);
                 }
             } catch (IOException e) {
                 System.out.println("Disconnected from server");
             }
         }).start();
-
-        // Controles para movimentação das paletas
-        panel.addKeyListener(new KeyAdapter() {
-            public void keyPressed(KeyEvent e) {
-                if (playerId == 1) {
-                    if (e.getKeyCode() == KeyEvent.VK_W && paddle1Y > 0) {
-                        paddle1Y -= 5; // Move paleta do jogador 1 para cima
-                        out.println("MOVE 1 " + paddle1Y);
-                    }
-                    if (e.getKeyCode() == KeyEvent.VK_S && paddle1Y < HEIGHT - 60) {
-                        paddle1Y += 5; // Move paleta do jogador 1 para baixo
-                        out.println("MOVE 1 " + paddle1Y);
-                    }
-                } else if (playerId == 2) {
-                    if (e.getKeyCode() == KeyEvent.VK_UP && paddle2Y > 0) {
-                        paddle2Y -= 5; // Move paleta do jogador 2 para cima
-                        out.println("MOVE 2 " + paddle2Y);
-                    }
-                    if (e.getKeyCode() == KeyEvent.VK_DOWN && paddle2Y < HEIGHT - 60) {
-                        paddle2Y += 5; // Move paleta do jogador 2 para baixo
-                        out.println("MOVE 2 " + paddle2Y);
-                    }
-                }
-            }
-        });
-        panel.setFocusable(true);
-        panel.requestFocusInWindow(); // Garante que o painel tenha o foco para capturar as teclas
     }
 
-    // Painel onde o jogo é desenhado
+    private void processUpdate(String update) {
+        if (update.startsWith("UPDATE")) {
+            String[] data = update.split(" ");
+            ballX = Integer.parseInt(data[1]);
+            ballY = Integer.parseInt(data[2]);
+            paddle1Y = Integer.parseInt(data[3]);
+            paddle2Y = Integer.parseInt(data[4]);
+            panel.repaint();
+        }
+    }
+
     private class PongPanel extends JPanel {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
-            // Desenha a paleta do jogador 1 à esquerda
             g.fillRect(10, paddle1Y, 10, 60);
-            // Desenha a paleta do jogador 2 à direita
             g.fillRect(470, paddle2Y, 10, 60);
-            // Desenha a bola
             g.fillRect(ballX, ballY, 10, 10);
         }
     }
