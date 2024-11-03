@@ -1,0 +1,102 @@
+import java.io.*;
+import java.net.*;
+import java.util.concurrent.*;
+
+public class PongServer {
+    private static final int TCP_PORT = 59090;
+    private static final int UDP_PORT = 59091;
+    private static int connectedPlayers = 0;
+    private static boolean player1Ready = false;
+    private static boolean player2Ready = false;
+
+    public static void main(String[] args) throws IOException {
+        System.out.println("Pong Server is running...");
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        
+        // Thread para lidar com TCP
+        new Thread(() -> handleTCPConnections(pool)).start();
+
+        // Thread para lidar com UDP
+        new Thread(() -> handleUDPConnections()).start();
+    }
+
+    private static void handleTCPConnections(ExecutorService pool) {
+        try (ServerSocket listener = new ServerSocket(TCP_PORT)) {
+            while (true) {
+                Socket socket = listener.accept();
+                synchronized (PongServer.class) {
+                    connectedPlayers++;
+                }
+                pool.execute(new PlayerHandler(socket));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void handleUDPConnections() {
+        try (DatagramSocket socket = new DatagramSocket(UDP_PORT)) {
+            byte[] buffer = new byte[1024];
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+                String message = new String(packet.getData(), 0, packet.getLength());
+                System.out.println("Received UDP message: " + message);
+
+                // Envia uma resposta para o cliente UDP
+                String response = "Pong Server received your message!";
+                byte[] responseData = response.getBytes();
+                DatagramPacket responsePacket = new DatagramPacket(responseData, responseData.length, packet.getAddress(), packet.getPort());
+                socket.send(responsePacket);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static class PlayerHandler implements Runnable {
+        private Socket socket;
+        private BufferedReader in;
+        private PrintWriter out;
+
+        public PlayerHandler(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+                
+                // Confirma conexão ao jogador
+                out.println("CONNECTED");
+                
+                String command;
+                while ((command = in.readLine()) != null) {
+                    if (command.equals("READY")) {
+                        synchronized (PongServer.class) {
+                            if (connectedPlayers == 1) {
+                                player1Ready = true;
+                            } else if (connectedPlayers == 2) {
+                                player2Ready = true;
+                            }
+                            if (player1Ready && player2Ready) {
+                                out.println("START_GAME");
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Player disconnected");
+            } finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+}

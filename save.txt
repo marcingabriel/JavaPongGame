@@ -1,0 +1,126 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.net.*;
+
+public class PongClient {
+    private static final int WIDTH = 300, HEIGHT = 200;
+    private JFrame frame;
+    private JPanel panel;
+    private int paddleY = 100;
+    private int ballX = 150, ballY = 100;
+    private JButton readyButton;
+    private boolean gameStarted = false;
+
+    public static void main(String[] args) {
+        String serverAddress = JOptionPane.showInputDialog("Enter Server IP:");
+        String protocol = JOptionPane.showInputDialog("Enter protocol (TCP/UDP):").toUpperCase();
+        
+        try {
+            if (protocol.equals("TCP")) {
+                new PongClient(serverAddress, true);
+            } else if (protocol.equals("UDP")) {
+                new PongClient(serverAddress, false);
+            } else {
+                System.out.println("Invalid protocol");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public PongClient(String serverAddress, boolean useTCP) throws IOException {
+        frame = new JFrame("Pong Client");
+        panel = new PongPanel();
+        frame.add(panel);
+        frame.setSize(WIDTH, HEIGHT);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+
+        if (useTCP) {
+            connectWithTCP(serverAddress);
+        } else {
+            connectWithUDP(serverAddress);
+        }
+    }
+
+    private void connectWithTCP(String serverAddress) throws IOException {
+        Socket socket = new Socket(serverAddress, 59090);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        readyButton = new JButton("Ready");
+        frame.add(readyButton, BorderLayout.SOUTH);
+        readyButton.addActionListener(e -> {
+            out.println("READY");
+            readyButton.setEnabled(false);
+        });
+
+        panel.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                if (gameStarted) {
+                    if (e.getKeyCode() == KeyEvent.VK_UP && paddleY > 0) {
+                        paddleY -= 5;
+                        out.println("MOVE 1 " + paddleY);
+                    }
+                    if (e.getKeyCode() == KeyEvent.VK_DOWN && paddleY < HEIGHT - 60) {
+                        paddleY += 5;
+                        out.println("MOVE 1 " + paddleY);
+                    }
+                }
+            }
+        });
+        panel.setFocusable(true);
+
+        new Thread(() -> {
+            try {
+                while (true) {
+                    String response = in.readLine();
+                    if (response == null) break;
+
+                    if (response.equals("CONNECTED")) {
+                        JOptionPane.showMessageDialog(frame, "Connected to server.");
+                    } else if (response.equals("START_GAME")) {
+                        gameStarted = true;
+                        JOptionPane.showMessageDialog(frame, "Game is starting!");
+                    } else if (response.startsWith("UPDATE")) {
+                        String[] data = response.split(" ");
+                        ballX = Integer.parseInt(data[1]);
+                        ballY = Integer.parseInt(data[2]);
+                        paddleY = Integer.parseInt(data[3]);
+                        panel.repaint();
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Disconnected from server");
+            }
+        }).start();
+    }
+
+    private void connectWithUDP(String serverAddress) throws IOException {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress serverIP = InetAddress.getByName(serverAddress);
+
+        String message = "PING";
+        byte[] buffer = message.getBytes();
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverIP, 59091);
+        socket.send(packet);
+
+        byte[] responseBuffer = new byte[1024];
+        DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
+        socket.receive(responsePacket);
+        String response = new String(responsePacket.getData(), 0, responsePacket.getLength());
+        JOptionPane.showMessageDialog(frame, response);
+    }
+
+    private class PongPanel extends JPanel {
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (gameStarted) {
+                g.fillRect(10, paddleY, 10, 60); // Paddle do jogador
+                g.fillRect(ballX, ballY, 10, 10); // Bola
+            }
+        }
+    }
+}
