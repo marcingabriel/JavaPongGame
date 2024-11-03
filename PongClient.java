@@ -132,9 +132,26 @@ public class PongClient {
     private class PongPanel extends JPanel {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
+            
+            // Desenhar as paletas
             g.fillRect(10, paddle1Y, 10, 60);
             g.fillRect(470, paddle2Y, 10, 60);
+            
+            // Desenhar a bola
             g.fillRect(ballX, ballY, 10, 10);
+            
+            // Desenhar linha tracejada no centro da tela
+            g.setColor(Color.BLACK); // Cor preta para os retângulos
+            for (int i = 1; i < 500; i += 20) { // Alterne a cada 20 pixels       
+                g.fillRect(250, i, 5, 10);
+            }
+    
+            // Desenhar retângulos marcando as bordas superior e inferior
+            g.setColor(Color.BLACK); // Cor preta para os retângulos
+            g.fillRect(0, 452, 500, 10); // Retângulo na parte inferior
+            g.fillRect(0, 1,500, 10); // Retângulo na parte superior
         }
     }
+    
+    
 }
