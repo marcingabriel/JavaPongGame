@@ -12,8 +12,8 @@ public class PongServer {
     private static int paddle2Y = 100; // Posição da paleta do jogador 2
     private static int ballX = GAME_WIDTH / 2; // Posição X da bola
     private static int ballY = GAME_HEIGHT / 2; // Posição Y da bola
-    private static int ballXSpeed = 2; // Velocidade da bola em X
-    private static int ballYSpeed = 1; // Velocidade da bola em Y
+    private static int ballXSpeed = 6; // Velocidade da bola em X
+    private static int ballYSpeed = 4; // Velocidade da bola em Y
     // Pontuação
     private static int scorePlayer1 = 0;
     private static int scorePlayer2 = 0;
@@ -115,10 +115,10 @@ public class PongServer {
             ballYSpeed = -ballYSpeed; // Inverte a direção
         }
 
-        if (ballX <= 16 && ballY >= paddle1Y && ballY <= paddle1Y + 60) {
+        if (ballX <= 23 && ballY >= paddle1Y && ballY <= paddle1Y + 60) {
             ballXSpeed = -ballXSpeed;
         }
-        if (ballX >= GAME_WIDTH - 40 && ballY >= paddle2Y && ballY <= paddle2Y + 60) {
+        if (ballX >= GAME_WIDTH - 47 && ballY >= paddle2Y && ballY <= paddle2Y + 60) {
             ballXSpeed = -ballXSpeed;
         }
 

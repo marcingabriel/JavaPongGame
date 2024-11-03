@@ -114,20 +114,20 @@ public class PongClient {
                 try {
                     if (playerId == 1) {
                         if (e.getKeyCode() == KeyEvent.VK_W && paddle1Y > 0) {
-                            paddle1Y -= 5;
+                            paddle1Y -= 10;
                             sendMessage("MOVE 1 " + paddle1Y);
                         }
                         if (e.getKeyCode() == KeyEvent.VK_S && paddle1Y < HEIGHT - 60) {
-                            paddle1Y += 5;
+                            paddle1Y += 10;
                             sendMessage("MOVE 1 " + paddle1Y);
                         }
                     } else if (playerId == 2) {
                         if (e.getKeyCode() == KeyEvent.VK_UP && paddle2Y > 0) {
-                            paddle2Y -= 5;
+                            paddle2Y -= 10;
                             sendMessage("MOVE 2 " + paddle2Y);
                         }
                         if (e.getKeyCode() == KeyEvent.VK_DOWN && paddle2Y < HEIGHT - 60) {
-                            paddle2Y += 5;
+                            paddle2Y += 10;
                             sendMessage("MOVE 2 " + paddle2Y);
                         }
                     }
@@ -197,38 +197,55 @@ public class PongClient {
     private class PongPanel extends JPanel {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
-            
-            // Desenhar as paletas
-            g.fillRect(4, paddle1Y, 10, 60);
-            g.fillRect(470, paddle2Y, 10, 60);
-            
-            // Desenhar a bola
-            g.fillRect(ballX, ballY, 10, 10);
-
-
-           
-            // Desenhar linha tracejada no centro da tela
-            g.setColor(Color.BLACK); // Cor preta para os retângulos
-            for (int i = 1; i < 500; i += 20) { // Alterne a cada 20 pixels       
-                g.fillRect(250, i, 5, 10);
+    
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    
+            // Definir as cores neon
+            Color neonBlueDark = new Color(0, 0, 60); // Azul escuro neon
+            Color neonRedDark = new Color(139, 0, 0); // Vermelho escuro
+            Color neonBlack = new Color(30, 30, 30); // Preto neon leve
+            Color neonBlue = new Color(0, 70, 180); // Azul claro neon
+    
+            // Desenhar o brilho neon para as paletas em preto neon
+            g2d.setColor(new Color(30, 30, 30, 100)); // Preto com transparência para brilho suave
+            for (int i = 0; i < 5; i++) { // 5 camadas para o brilho
+                g2d.fillRect(10 - i, paddle1Y - i, 10 + 2 * i, 60 + 2 * i);
+                g2d.fillRect(464 - i, paddle2Y - i, 10 + 2 * i, 60 + 2 * i);
             }
     
-            // Desenhar retângulos marcando as bordas superior e inferior
-            g.setColor(Color.BLUE); // Cor preta para os retângulos
-            g.fillRect(0, 452, 500, 10); // Retângulo na parte inferior
-            g.fillRect(0, 1,500, 10); // Retângulo na parte superior
-
-
-                g.setColor(Color.RED);
-               // Exibir pontuação dos jogadores (apenas os números) com fonte maior
-                g.setFont(new Font("Arial", Font.BOLD, 48)); // Tamanho de fonte ajustado para 48
-                g.drawString(String.valueOf(scorePlayer1), 150, 50); // Posição para o jogador 1
-                g.drawString(String.valueOf(scorePlayer2), 320, 50); // Posição para o jogador 2
-
-
+            // Desenhar as paletas em preto neon
+            g2d.setColor(neonBlack);
+            g2d.fillRect(10, paddle1Y, 10, 60);
+            g2d.fillRect(464, paddle2Y, 10, 60);
+    
+   
+           // Desenhar a bola
+           g2d.setColor(neonBlue);
+           g.fillRect(ballX, ballY, 10, 10);
+    
+            // Desenhar a bola em azul neon
+            g2d.setColor(neonBlue);
+            g2d.fillOval(ballX, ballY, 10, 10);
+    
+            // Desenhar linha tracejada no centro da tela em azul escuro neon
+            g2d.setColor(neonBlack);
+            for (int i = 1; i < 500; i += 20) { // Alterne a cada 20 pixels
+                g2d.fillRect(250, i, 5, 10);
+            }
+    
+            // Desenhar retângulos marcando as bordas superior e inferior em azul escuro neon
+            g2d.setColor(neonBlack);
+            g2d.fillRect(0, 452, 500, 10); // Retângulo na parte inferior
+            g2d.fillRect(0, 1, 500, 10); // Retângulo na parte superior
+    
+            // Exibir pontuação dos jogadores com vermelho escuro e fonte maior
+            g2d.setColor(neonRedDark);
+            g2d.setFont(new Font("Arial", Font.BOLD, 48)); // Tamanho de fonte ajustado para 48
+            g2d.drawString(String.valueOf(scorePlayer1), 150, 50); // Posição para o jogador 1
+            g2d.drawString(String.valueOf(scorePlayer2), 320, 50); // Posição para o jogador 2
         }
     }
-
 
     
     
