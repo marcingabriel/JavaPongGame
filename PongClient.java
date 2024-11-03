@@ -21,16 +21,39 @@ public class PongClient {
 
 
     public static void main(String[] args) {
-        String serverIP = JOptionPane.showInputDialog("Enter Server IP:");
-        String[] options = {"TCP", "UDP"};
-        int protocolChoice = JOptionPane.showOptionDialog(null, "Choose Protocol", "Protocol Selection",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
-        boolean isUDP = protocolChoice == 1;
+        // Painel para a entrada de IP e escolha do protocolo
+        JPanel panel = new JPanel(new GridLayout(3, 1));
         
-        try {
-            new PongClient(serverIP, isUDP);
-        } catch (IOException e) {
-            e.printStackTrace();
+        JTextField ipField = new JTextField();
+        panel.add(new JLabel("Enter Server IP:"));
+        panel.add(ipField);
+        
+        JRadioButton tcpButton = new JRadioButton("TCP", true);
+        JRadioButton udpButton = new JRadioButton("UDP");
+        
+        ButtonGroup group = new ButtonGroup();
+        group.add(tcpButton);
+        group.add(udpButton);
+        
+        JPanel protocolPanel = new JPanel();
+        protocolPanel.add(tcpButton);
+        protocolPanel.add(udpButton);
+        
+        panel.add(protocolPanel);
+
+        // Exibe o diálogo de entrada
+        int result = JOptionPane.showConfirmDialog(null, panel, "Enter Server IP and Choose Protocol",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String serverIP = ipField.getText();
+            boolean isUDP = udpButton.isSelected();
+            
+            try {
+                new PongClient(serverIP, isUDP);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -138,11 +161,15 @@ public class PongClient {
         new Thread(() -> {
             try {
                 String response = in.readLine();
-                if (response.startsWith("CONNECTED")) {
+                if (response != null && response.startsWith("CONNECTED")) {
                     playerId = Integer.parseInt(response.split(" ")[1]);
                 }
                 while (true) {
                     response = in.readLine();
+                    if (response == null) {
+                        System.out.println("Server connection lost.");
+                        break; // Saia do loop se a resposta for nula
+                    }
                     processUpdate(response);
                 }
             } catch (IOException e) {
@@ -150,6 +177,7 @@ public class PongClient {
             }
         }).start();
     }
+    
 
     private void processUpdate(String update) {
         if (update.startsWith("UPDATE")) {
