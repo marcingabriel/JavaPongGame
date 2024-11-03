@@ -21,16 +21,39 @@ public class PongClient {
 
 
     public static void main(String[] args) {
-        String serverIP = JOptionPane.showInputDialog("Enter Server IP:");
-        String[] options = {"TCP", "UDP"};
-        int protocolChoice = JOptionPane.showOptionDialog(null, "Choose Protocol", "Protocol Selection",
-                JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
-        boolean isUDP = protocolChoice == 1;
+        // Painel para a entrada de IP e escolha do protocolo
+        JPanel panel = new JPanel(new GridLayout(3, 1));
         
-        try {
-            new PongClient(serverIP, isUDP);
-        } catch (IOException e) {
-            e.printStackTrace();
+        JTextField ipField = new JTextField();
+        panel.add(new JLabel("Enter Server IP:"));
+        panel.add(ipField);
+        
+        JRadioButton tcpButton = new JRadioButton("TCP", true);
+        JRadioButton udpButton = new JRadioButton("UDP");
+        
+        ButtonGroup group = new ButtonGroup();
+        group.add(tcpButton);
+        group.add(udpButton);
+        
+        JPanel protocolPanel = new JPanel();
+        protocolPanel.add(tcpButton);
+        protocolPanel.add(udpButton);
+        
+        panel.add(protocolPanel);
+
+        // Exibe o diálogo de entrada
+        int result = JOptionPane.showConfirmDialog(null, panel, "Enter Server IP and Choose Protocol",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String serverIP = ipField.getText();
+            boolean isUDP = udpButton.isSelected();
+            
+            try {
+                new PongClient(serverIP, isUDP);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -44,19 +67,46 @@ public class PongClient {
         frame.setVisible(true);
         
         serverAddress = InetAddress.getByName(serverIP);
-
+    
         if (isUDP) {
             udpSocket = new DatagramSocket();
             sendUDPMessage("CONNECT");
+            startUDPReceiver();  // Inicializa a thread para recepção UDP
         } else {
             Socket socket = new Socket(serverIP, 59090);
             out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             startTCPReceiver(in);
         }
-
+    
         setupControls();
     }
+    
+    private void startUDPReceiver() {
+        new Thread(() -> {
+            byte[] buffer = new byte[256];
+            while (true) {
+                try {
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    udpSocket.receive(packet);
+                    
+                    String response = new String(packet.getData(), 0, packet.getLength());
+                    System.out.println("Recebido via UDP: " + response); // Log para verificar a recepção
+    
+                    if (response.startsWith("CONNECTED")) {
+                        playerId = Integer.parseInt(response.split(" ")[1]);
+                    } else if (response.startsWith("UPDATE")) {
+                        processUpdate(response);
+                    }
+                    
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        }).start();
+    }
+    
 
     private void setupControls() {
         panel.addKeyListener(new KeyAdapter() {
@@ -88,10 +138,13 @@ public class PongClient {
         });
         panel.setFocusable(true);
         panel.requestFocusInWindow();
+        
     }
+    
 
     private void sendMessage(String message) throws IOException {
         if (isUDP) {
+            System.out.println("Movimento enviado via UDP: " + message);
             sendUDPMessage(message);
         } else {
             out.println(message);
@@ -100,7 +153,7 @@ public class PongClient {
 
     private void sendUDPMessage(String message) throws IOException {
         byte[] buffer = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverAddress, 59090);
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, serverAddress, 59091);
         udpSocket.send(packet);
     }
 
@@ -108,11 +161,15 @@ public class PongClient {
         new Thread(() -> {
             try {
                 String response = in.readLine();
-                if (response.startsWith("CONNECTED")) {
+                if (response != null && response.startsWith("CONNECTED")) {
                     playerId = Integer.parseInt(response.split(" ")[1]);
                 }
                 while (true) {
                     response = in.readLine();
+                    if (response == null) {
+                        System.out.println("Server connection lost.");
+                        break; // Saia do loop se a resposta for nula
+                    }
                     processUpdate(response);
                 }
             } catch (IOException e) {
@@ -120,6 +177,7 @@ public class PongClient {
             }
         }).start();
     }
+    
 
     private void processUpdate(String update) {
         if (update.startsWith("UPDATE")) {
@@ -130,9 +188,12 @@ public class PongClient {
             paddle2Y = Integer.parseInt(data[4]);
             scorePlayer1 = Integer.parseInt(data[5]);
             scorePlayer2 = Integer.parseInt(data[6]);
-            panel.repaint();
+            
+            panel.repaint();  // Atualiza a tela após as mudanças
         }
     }
+    
+    
     
 
     private class PongPanel extends JPanel {
