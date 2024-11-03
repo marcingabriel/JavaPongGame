@@ -207,12 +207,7 @@ public class PongClient {
             Color neonBlack = new Color(30, 30, 30); // Preto neon leve
             Color neonBlue = new Color(0, 70, 180); // Azul claro neon
     
-            // Desenhar o brilho neon para as paletas em preto neon
-            g2d.setColor(new Color(30, 30, 30, 100)); // Preto com transparência para brilho suave
-            for (int i = 0; i < 5; i++) { // 5 camadas para o brilho
-                g2d.fillRect(10 - i, paddle1Y - i, 10 + 2 * i, 60 + 2 * i);
-                g2d.fillRect(464 - i, paddle2Y - i, 10 + 2 * i, 60 + 2 * i);
-            }
+       
     
             // Desenhar as paletas em preto neon
             g2d.setColor(neonBlack);
