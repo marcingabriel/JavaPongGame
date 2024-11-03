@@ -68,7 +68,7 @@ public class PongClient {
                     udpSocket.receive(packet);
                     
                     String response = new String(packet.getData(), 0, packet.getLength());
-                    //System.out.println("Recebido via UDP: " + response); // Log para verificar a recepção
+                    System.out.println("Recebido via UDP: " + response); // Log para verificar a recepção
     
                     if (response.startsWith("UPDATE")) {
                         processUpdate(response);
@@ -113,6 +113,7 @@ public class PongClient {
         panel.setFocusable(true);
         panel.requestFocusInWindow();
     }
+    
 
     private void sendMessage(String message) throws IOException {
         if (isUDP) {
@@ -154,9 +155,12 @@ public class PongClient {
             paddle2Y = Integer.parseInt(data[4]);
             scorePlayer1 = Integer.parseInt(data[5]);
             scorePlayer2 = Integer.parseInt(data[6]);
-            panel.repaint();
+            
+            panel.repaint();  // Atualiza a tela após as mudanças
         }
     }
+    
+    
     
 
     private class PongPanel extends JPanel {

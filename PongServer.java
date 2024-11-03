@@ -39,15 +39,20 @@ public class PongServer {
             while (true) {
                 Socket socket = listener.accept();
                 synchronized (PongServer.class) {
-                    connectedPlayers++;
+                    if (connectedPlayers < 2) { // Limitar a 2 jogadores
+                        connectedPlayers++;
+                        pool.execute(new PlayerHandler(socket, connectedPlayers));
+                    } else {
+                        // Rejeitar conexão se já houver 2 jogadores conectados
+                        socket.close();
+                    }
                 }
-                pool.execute(new PlayerHandler(socket, connectedPlayers));
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
+    
     private static void handleUDPConnections() {
         byte[] buffer = new byte[256];
         try {
@@ -86,6 +91,7 @@ public class PongServer {
             e.printStackTrace();
         }
     }
+    
     
     
     private static void gameLoop() {
@@ -133,13 +139,20 @@ public class PongServer {
     private static void sendGameUpdate() {
         String update = String.format("UPDATE %d %d %d %d %d %d", ballX, ballY, paddle1Y, paddle2Y, scorePlayer1, scorePlayer2);
         synchronized (PongServer.class) {
+            // Remover jogadores desconectados da lista de jogadores TCP
+            PlayerHandler.players.removeIf(player -> player.out == null);
+    
+            // Enviar atualização para clientes TCP
             for (PlayerHandler player : PlayerHandler.players) {
                 player.sendUpdate(update);
             }
-            //System.out.println("Enviando atualização para clientes UDP: " + update); // Log de debug
+            
+            // Enviar atualização para clientes UDP
             sendUDPUpdate(update);
         }
     }
+    
+    
     
     
 
@@ -163,28 +176,35 @@ public class PongServer {
         static final java.util.List<PlayerHandler> players = new java.util.ArrayList<>();
         static final java.util.List<InetSocketAddress> udpClients = new java.util.ArrayList<>();
         private int playerId;
-
+    
         public PlayerHandler(Socket socket, int playerId) {
             this.socket = socket;
             this.playerId = playerId;
+    
+            try {
+                // Inicializa o PrintWriter antes de adicionar à lista de jogadores
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            
+            // Agora adicione o jogador à lista após a inicialização de out
             players.add(this);
         }
-
+    
         @Override
         public void run() {
             try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new PrintWriter(socket.getOutputStream(), true);
-
-                out.println("CONNECTED " + playerId);
-
+                out.println("CONNECTED " + playerId); // Confirmação de conexão para o cliente
+    
                 String command;
                 while ((command = in.readLine()) != null) {
                     if (command.startsWith("MOVE")) {
                         String[] parts = command.split(" ");
                         int player = Integer.parseInt(parts[1]);
                         int newY = Integer.parseInt(parts[2]);
-
+    
                         if (player == 1) {
                             paddle1Y = newY;
                         } else if (player == 2) {
@@ -200,12 +220,25 @@ public class PongServer {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                players.remove(this);
+                
+                synchronized (PongServer.class) {
+                    // Remove o jogador da lista e libera seu ID
+                    PlayerHandler.players.remove(this); // Remove o jogador desconectado
+                    PlayerHandler.udpClients.removeIf(client -> client.getPort() == socket.getPort());
+                    
+                    if (this.playerId == 1) {
+                        PongServer.connectedPlayers--;
+                    } else if (this.playerId == 2) {
+                        PongServer.connectedPlayers--;
+                    }
+                }
             }
         }
-
+    
         public void sendUpdate(String update) {
-            out.println(update);
+            if (out != null) { // Verifique se out não é nulo antes de tentar enviar
+                out.println(update);
+            }
         }
     }
 }
